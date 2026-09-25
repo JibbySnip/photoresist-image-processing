@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photoresist Document Converter</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="dropbox">
+    	<input
+  		type="file"
+  		id="image-input"
+		accept="image/png, image/jpeg"
+		class="visually-hidden" />
+    	<label for="image-input">Select your image</label>
+    </div>
+    <canvas id="preview" width="200" height="100"></canvas>
+
+    <script src="image.js" defer></script>
+</body>
+</html>
