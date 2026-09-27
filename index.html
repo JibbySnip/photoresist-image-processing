@@ -2,121 +2,548 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
+
     <title>Photoresist Document Converter</title>
-    <link rel="stylesheet" href="style.css">
 
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+        crossorigin="anonymous"
+    >
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
-    
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
-
-<script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
-
+    <script
+        src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+        crossorigin="anonymous"
+    ></script>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js"></script>
 </head>
-<body>
-    <div id="dropbox">
-    	<input
-  		type="file"
-  		id="image-input"
-		accept="image/png, image/jpeg"
-		class="visually-hidden" />
-    	<label for="image-input">Select your image</label>
-    </div>
-    <div class="container">
-  	<div class="row">
-    	  <div class="col-6">
-    		<canvas id="preview"></canvas>
-	  </div>
-    	  <div class="col-6">
-    		<canvas id="raw" width="200" height="100"></canvas>
-	  </div>
+
+<body class="bg-light">
+
+    <!-- Header -->
+    <header class="bg-dark text-white shadow-sm">
+        <div class="container py-4">
+            <div class="text-center">
+                <h1 class="h3 mb-2">
+                    Photoresist Document Converter
+                </h1>
+
+                <p class="mb-0 text-white-50">
+                    Prepare images for photoresist and sandblasting.
+                </p>
+            </div>
         </div>
-    </div>
-        <form autocomplete="off" id="edit-form" class="row gy-2 gx-3 align-items-center" style="display:none;">
-		
-	  <p>White areas will be sandblasted away</p>
-		<input
-		    id="width-input"
-		    type="number"
-		    min="0.1"
-		    max="6"
-		    step="0.01"
-		    value="6"
-		/>
-		<label for="width-input">Width (in)</label>
+    </header>
 
-		<input
-		    id="height-input"
-		    type="number"
-		    step="0.01"
-		    readonly
-		/>
-		<label for="height-input">Height (in)</label>
+    <main class="container py-4">
 
-		<input
-		    type="number"
-		    id="ppi"
-		    min="1"
-		    max="1200"
-		    step="1"
-		    value="600"
-		/>
-		<label for="ppi">PPI</label>
+        <!-- File upload -->
+        <section class="mb-4">
+            <div
+                id="dropbox"
+                class="border border-2 border-primary rounded-3 bg-white p-4 text-center shadow-sm"
+            >
+                <div class="mb-3">
+                    <span class="display-6 text-primary">＋</span>
+                </div>
 
-		<input type="range" id="contrast-slider" min=-255 max=255 value=0 step=1 />
-		<label for="contrast-slider">Contrast</label>
-	<ul class="nav nav-tabs nav-fill" id="mode-tabs" role="tablist">
-	  <li class="nav-item" role="presentation">
-	    <button class="nav-link active" id="halftone-tab" data-bs-toggle="tab" data-bs-target="#halftone-tab-pane" type="button" role="tab" aria-controls="halftone-tab-pane" aria-selected="true">Halftone</button>
-	  </li>
-	  <li class="nav-item" role="presentation">
-	    <button class="nav-link" id="profile-tab" data-bs-toggle="tab" data-bs-target="#threshold-tab-pane" type="button" role="tab" aria-controls="threshold-tab-pane" aria-selected="false">Threshold</button>
-	  </li>
-	</ul>
+                <h2 class="h5">
+                    Add an image
+                </h2>
 
-	<div class="tab-content" id="tab-content">
-	  <div class="tab-pane fade show active" id="halftone-tab-pane" role="tabpanel" aria-labelledby="halftone-tab" tabindex="0">
-	  	  <p>Size of dots (dots per inch):</p>
-  
-		  <input type="radio" id="lpi-35" name="lpi" value="35" />
-		  <label for="lpi-35">Small (35)</label><br>
+                <p class="text-muted mb-3">
+                    Choose a PNG or JPEG file, or drag and drop one here.
+                </p>
 
-		  <input type="radio" id="lpi-45" name="lpi" value="45" checked />
-		  <label for="lpi-45">Medium (45)</label><br>
+                <input
+                    type="file"
+                    id="image-input"
+                    accept="image/png, image/jpeg"
+                    class="visually-hidden"
+                >
 
-		  <input type="radio" id="lpi-55" name="lpi" value="55" />
-		  <label for="lpi-55">Large (55)</label>
+                <label
+                    for="image-input"
+                    class="btn btn-primary"
+                >
+                    Select an image
+                </label>
+            </div>
+        </section>
 
-		  <input type="range" id="angle-slider" min=0 max=90 step=0.5 value=37.5 />
-		  <label for="angle-slider">Angle of dot grid</label>
-		
-		<p>Shape of halftone grid</p>
-		<input type="radio" id='shape-round' name='shape' checked value="round" />
-		<label for="shape-round">&#11044; Round</label>
+        <!-- Sticky preview -->
+        <section
+            class="sticky-top top-0 z-3 mb-4 py-3 bg-light"
+        >
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h2 class="h5 mb-0">
+                        Preview
+                    </h2>
+                </div>
 
-	  </div>
-	  <div class="tab-pane fade" id="threshold-tab-pane" role="tabpanel" aria-labelledby="threshold-tab" tabindex="0">
-		<input type="range" id="threshold-slider" min="0" max="255" value="50" step="1" />
-		<label for="threshold-slider">Threshold value</label>
+                <div class="card-body">
+                    <div class="row g-4 align-items-start">
 
-	  </div>
-	</div>
+                        <!-- Processed image -->
+                        <div class="col-12 col-lg-6">
+                            <div class="text-center">
+                                <h3 class="h6 text-muted">
+                                    Processed image
+                                </h3>
 
-	<input type="checkbox" id="invert-checkbox" />
-	<label for="invert-checkbox">Invert</label>
+                                <div class="border rounded bg-light p-2 overflow-auto">
+                                    <canvas
+                                        id="preview"
+                                        class="d-block mx-auto"
+                                    ></canvas>
+                                </div>
+                            </div>
+                        </div>
 
-	<input type="checkbox" id="border-checkbox" />
-	<label for="border-checkbox">Add 0.125in border around the image on the final printed film</label>
+                        <!-- Original image -->
+                        <div class="col-12 col-lg-6">
+                            <div class="text-center">
+                                <h3 class="h6 text-muted">
+                                    Original image
+                                </h3>
 
-	<input type="checkbox" id="invert-border-checkbox" style="display:none;"/>
-	<label for="invert-border-checkbox">Sandblast the border into the piece</label>
+                                <div class="border rounded bg-light p-2 overflow-auto">
+                                    <canvas
+                                        id="raw"
+                                        width="200"
+                                        height="100"
+                                        class="d-block mx-auto"
+                                    ></canvas>
+                                </div>
+                            </div>
+                        </div>
 
-	<button id="submit-edit-form" type="button">Submit</button> 	
-    </form>
-    <script src="image.js" defer></script>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Editing controls -->
+        <form
+            id="edit-form"
+            autocomplete="off"
+            class="d-flex flex-column gap-4"
+            style="display: none;"
+        >
+
+            <!-- Output size -->
+            <section class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h2 class="h5 mb-0">
+                        Output size
+                    </h2>
+                </div>
+
+                <div class="card-body">
+                    <p class="text-muted">
+                        Width and height are measured in inches.
+                        Height stays locked to the original image ratio.
+                    </p>
+
+                    <div class="row g-3">
+
+                        <div class="col-12 col-md-4">
+                            <label
+                                for="width-input"
+                                class="form-label"
+                            >
+                                Width
+                            </label>
+
+                            <div class="input-group">
+                                <input
+                                    id="width-input"
+                                    type="number"
+                                    class="form-control"
+                                    min="0.1"
+                                    max="6"
+                                    step="0.01"
+                                    value="6"
+                                >
+
+                                <span class="input-group-text">
+                                    in
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-4">
+                            <label
+                                for="height-input"
+                                class="form-label"
+                            >
+                                Height
+                            </label>
+
+                            <div class="input-group">
+                                <input
+                                    id="height-input"
+                                    type="number"
+                                    class="form-control bg-light"
+                                    step="0.01"
+                                    readonly
+                                >
+
+                                <span class="input-group-text">
+                                    in
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-4">
+                            <label
+                                for="ppi"
+                                class="form-label"
+                            >
+                                Output resolution
+                            </label>
+
+                            <div class="input-group">
+                                <input
+                                    type="number"
+                                    id="ppi"
+                                    class="form-control"
+                                    min="1"
+                                    max="1200"
+                                    step="1"
+                                    value="600"
+                                >
+
+                                <span class="input-group-text">
+                                    PPI
+                                </span>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </section>
+
+            <!-- Image adjustments -->
+            <section class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h2 class="h5 mb-0">
+                        Image adjustments
+                    </h2>
+                </div>
+
+                <div class="card-body">
+                    <div class="mb-4">
+                        <label
+                            for="contrast-slider"
+                            class="form-label d-flex justify-content-between"
+                        >
+                            <span>Contrast</span>
+                            <span class="text-muted">Adjust image contrast</span>
+                        </label>
+
+                        <input
+                            type="range"
+                            id="contrast-slider"
+                            class="form-range"
+                            min="-255"
+                            max="255"
+                            value="0"
+                            step="1"
+                        >
+                    </div>
+
+                    <div class="form-check form-switch">
+                        <input
+                            type="checkbox"
+                            id="invert-checkbox"
+                            class="form-check-input"
+                        >
+
+                        <label
+                            for="invert-checkbox"
+                            class="form-check-label"
+                        >
+                            Invert image
+                        </label>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Processing mode -->
+            <section class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h2 class="h5 mb-0">
+                        Processing mode
+                    </h2>
+                </div>
+
+                <div class="card-body">
+
+                    <ul
+                        class="nav nav-tabs nav-fill mb-4"
+                        id="mode-tabs"
+                        role="tablist"
+                    >
+                        <li
+                            class="nav-item"
+                            role="presentation"
+                        >
+                            <button
+                                class="nav-link active"
+                                id="halftone-tab"
+                                data-bs-toggle="tab"
+                                data-bs-target="#halftone-tab-pane"
+                                type="button"
+                                role="tab"
+                                aria-controls="halftone-tab-pane"
+                                aria-selected="true"
+                            >
+                                Halftone
+                            </button>
+                        </li>
+
+                        <li
+                            class="nav-item"
+                            role="presentation"
+                        >
+                            <button
+                                class="nav-link"
+                                id="profile-tab"
+                                data-bs-toggle="tab"
+                                data-bs-target="#threshold-tab-pane"
+                                type="button"
+                                role="tab"
+                                aria-controls="threshold-tab-pane"
+                                aria-selected="false"
+                            >
+                                Threshold
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div
+                        class="tab-content"
+                        id="tab-content"
+                    >
+
+                        <!-- Halftone controls -->
+                        <div
+                            class="tab-pane fade show active"
+                            id="halftone-tab-pane"
+                            role="tabpanel"
+                            aria-labelledby="halftone-tab"
+                            tabindex="0"
+                        >
+                            <div class="mb-4">
+                                <h3 class="h6">
+                                    Halftone screen
+                                </h3>
+
+                                <p class="text-muted small">
+                                    Choose the halftone line frequency.
+                                </p>
+
+                                <div class="d-flex flex-wrap gap-3">
+
+                                    <div class="form-check">
+                                        <input
+                                            type="radio"
+                                            id="lpi-35"
+                                            name="lpi"
+                                            value="35"
+                                            class="form-check-input"
+                                        >
+
+                                        <label
+                                            for="lpi-35"
+                                            class="form-check-label"
+                                        >
+                                            Small — 35 LPI
+                                        </label>
+                                    </div>
+
+                                    <div class="form-check">
+                                        <input
+                                            type="radio"
+                                            id="lpi-45"
+                                            name="lpi"
+                                            value="45"
+                                            class="form-check-input"
+                                            checked
+                                        >
+
+                                        <label
+                                            for="lpi-45"
+                                            class="form-check-label"
+                                        >
+                                            Medium — 45 LPI
+                                        </label>
+                                    </div>
+
+                                    <div class="form-check">
+                                        <input
+                                            type="radio"
+                                            id="lpi-55"
+                                            name="lpi"
+                                            value="55"
+                                            class="form-check-input"
+                                        >
+
+                                        <label
+                                            for="lpi-55"
+                                            class="form-check-label"
+                                        >
+                                            Large — 55 LPI
+                                        </label>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label
+                                    for="angle-slider"
+                                    class="form-label d-flex justify-content-between"
+                                >
+                                    <span>Dot grid angle</span>
+                                    <span class="text-muted">0°–90°</span>
+                                </label>
+
+                                <input
+                                    type="range"
+                                    id="angle-slider"
+                                    class="form-range"
+                                    min="0"
+                                    max="90"
+                                    step="0.5"
+                                    value="37.5"
+                                >
+                            </div>
+
+                            <div>
+                                <h3 class="h6">
+                                    Dot shape
+                                </h3>
+
+                                <div class="form-check">
+                                    <input
+                                        type="radio"
+                                        id="shape-round"
+                                        name="shape"
+                                        value="round"
+                                        class="form-check-input"
+                                        checked
+                                    >
+
+                                    <label
+                                        for="shape-round"
+                                        class="form-check-label"
+                                    >
+                                        Round
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Threshold controls -->
+                        <div
+                            class="tab-pane fade"
+                            id="threshold-tab-pane"
+                            role="tabpanel"
+                            aria-labelledby="profile-tab"
+                            tabindex="0"
+                        >
+                            <label
+                                for="threshold-slider"
+                                class="form-label d-flex justify-content-between"
+                            >
+                                <span>Threshold</span>
+                                <span class="text-muted">0–255</span>
+                            </label>
+
+                            <input
+                                type="range"
+                                id="threshold-slider"
+                                class="form-range"
+                                min="0"
+                                max="255"
+                                value="50"
+                                step="1"
+                            >
+                        </div>
+
+                    </div>
+                </div>
+            </section>
+
+            <!-- Border controls -->
+            <section class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h2 class="h5 mb-0">
+                        Print options
+                    </h2>
+                </div>
+
+                <div class="card-body">
+
+                    <div class="form-check mb-3">
+                        <input
+                            type="checkbox"
+                            id="border-checkbox"
+                            class="form-check-input"
+                        >
+
+                        <label
+                            for="border-checkbox"
+                            class="form-check-label"
+                        >
+                            Add a 0.125-inch border around the final film
+                        </label>
+                    </div>
+
+                    <div class="form-check">
+                        <input
+                            type="checkbox"
+                            id="invert-border-checkbox"
+                            class="form-check-input"
+                            disabled
+                        >
+
+                        <label
+                            for="invert-border-checkbox"
+                            class="form-check-label"
+                        >
+                            Sandblast the border into the piece
+                        </label>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- Submit -->
+            <div class="d-grid pb-4">
+                <button
+                    id="submit-edit-form"
+                    type="button"
+                    class="btn btn-primary btn-lg"
+                >
+                    Download PDF
+                </button>
+            </div>
+
+        </form>
+    </main>
+
+    <script
+        src="image.js"
+        defer
+    ></script>
 </body>
 </html>

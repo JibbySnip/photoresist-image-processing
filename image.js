@@ -1,33 +1,31 @@
+// -----------------------------------------------------------------------------
+// Drag and drop
+// -----------------------------------------------------------------------------
 
-// set up drag and drop
-let dropbox;
+const dropbox = document.getElementById("dropbox");
 
-dropbox = document.getElementById("dropbox");
-dropbox.addEventListener("dragenter", dragenter);
-dropbox.addEventListener("dragover", dragover);
+dropbox.addEventListener("dragenter", preventDragDefaults);
+dropbox.addEventListener("dragover", preventDragDefaults);
 dropbox.addEventListener("drop", drop);
 
-function dragenter(e) {
-  e.stopPropagation();
-  e.preventDefault();
+function preventDragDefaults(event) {
+    event.preventDefault();
+    event.stopPropagation();
 }
 
-function dragover(e) {
-  e.stopPropagation();
-  e.preventDefault();
+function drop(event) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const files = event.dataTransfer.files;
+    handleFile(files);
 }
 
-function drop(e) {
-  e.stopPropagation();
-  e.preventDefault();
 
-  const dt = e.dataTransfer;
-  const files = dt.files;
+// -----------------------------------------------------------------------------
+// DOM elements
+// -----------------------------------------------------------------------------
 
-  handleFile(files);
-}
-
-// setup the canvas and all
 const canvas = document.getElementById("preview");
 const ctx = canvas.getContext("2d");
 
@@ -40,71 +38,89 @@ const widthInput = document.getElementById("width-input");
 const heightInput = document.getElementById("height-input");
 const ppiInput = document.getElementById("ppi");
 
+const contrastSlider = document.getElementById("contrast-slider");
+const thresholdSlider = document.getElementById("threshold-slider");
+const angleSlider = document.getElementById("angle-slider");
+const invertCheckbox = document.getElementById("invert-checkbox");
+
+const addBorderCheckbox =
+    document.getElementById("border-checkbox");
+
+const invertBorderCheckbox =
+    document.getElementById("invert-border-checkbox");
+
+const submitFormButton =
+    document.getElementById("submit-edit-form");
+
+const halftoneTab =
+    document.querySelector(
+        'button[data-bs-target="#halftone-tab-pane"]'
+    );
+
+const thresholdTab =
+    document.querySelector(
+        'button[data-bs-target="#threshold-tab-pane"]'
+    );
+
+
+// -----------------------------------------------------------------------------
+// Application state
+// -----------------------------------------------------------------------------
+
 let img = null;
 let aspectRatio = null;
+let mode = "halftone";
 
-// show the makeBorderWhite button if addBorder is checked
-const addBorder = document.getElementById("border-checkbox");
-const makeBorderWhite = document.getElementById("invert-border-checkbox");
+// -----------------------------------------------------------------------------
+// Disabled Checkbox
+// -----------------------------------------------------------------------------
 
-addBorder.addEventListener('click', () => {
-	if (addBorder.checked) {
-		makeBorderWhite.checked = false;
-		makeBorderWhite.style.display = "block";
+addBorderCheckbox.addEventListener('change', () => {
+	if (!addBorderCheckbox.checked) {
+		invertBorderCheckbox.checked = false;
+		invertBorderCheckbox.disabled = true;
 	} else {
-		makeBorderWhite.style.display = "none";
+		invertBorderCheckbox.disabled = false;
 	}
-
 });
 
+// -----------------------------------------------------------------------------
+// Image loading
+// -----------------------------------------------------------------------------
 
-// set up image submission that triggers display on canvas and showing the image editing menu
-inputElement.addEventListener("change", handleFile, false);
+inputElement.addEventListener("change", handleFile);
 
-async function handleFile(fileOrEvent) {
+function handleFile(fileOrEvent) {
     const file = fileOrEvent.target
         ? fileOrEvent.target.files[0]
         : fileOrEvent[0];
 
-    if (!file) return;
+    if (!file) {
+        return;
+    }
 
     const reader = new FileReader();
 
-    reader.onload = function(event) {
+    reader.onload = function (event) {
         img = new Image();
 
-        img.onload = function() {
-            // Store the original image aspect ratio
-            aspectRatio = img.naturalHeight / img.naturalWidth;
+        img.onload = function () {
+            aspectRatio =
+                img.naturalHeight / img.naturalWidth;
 
-            // Show the editing controls
             imageForm.style.display = "block";
 
-            // Set the initial physical height from the chosen width
+            // Calculate the initial physical height.
             updatePhysicalDimensions();
 
-            // Set the internal pixel dimensions
+            // Set the internal pixel dimensions.
             resizeCanvasToOutput();
 
-            // Process the image
+            // Process the edited image.
             processImagePipeline();
 
-            // Optional raw/original preview
-            const rawCtx = rawCanvas.getContext("2d");
-
-            rawCanvas.width = 800;
-            rawCanvas.height = Math.round(
-                800 * aspectRatio
-            );
-
-            rawCtx.clearRect(
-                0,
-                0,
-                rawCanvas.width,
-                rawCanvas.height
-            );
-
-            drawImageScaled(img, rawCtx, "contain");
+            // Draw the original image in the raw preview canvas.
+            drawRawPreview();
         };
 
         img.src = event.target.result;
@@ -113,10 +129,38 @@ async function handleFile(fileOrEvent) {
     reader.readAsDataURL(file);
 }
 
+function drawRawPreview() {
+    const rawCtx = rawCanvas.getContext("2d");
+
+    rawCanvas.width = 800;
+    rawCanvas.height = Math.round(800 * aspectRatio);
+
+    rawCanvas.style.width = "min(800px, 100%)";
+    rawCanvas.style.height = "auto";
+
+    rawCtx.clearRect(
+        0,
+        0,
+        rawCanvas.width,
+        rawCanvas.height
+    );
+
+    drawImageScaled(img, rawCtx, "contain");
+}
+
+
+// -----------------------------------------------------------------------------
+// Physical size and output resolution
+// -----------------------------------------------------------------------------
+
 function updatePhysicalDimensions() {
     const widthInches = Number(widthInput.value);
 
-    if (!Number.isFinite(widthInches) || widthInches <= 0) {
+    if (
+        !Number.isFinite(widthInches) ||
+        widthInches <= 0 ||
+        !aspectRatio
+    ) {
         return false;
     }
 
@@ -127,342 +171,470 @@ function updatePhysicalDimensions() {
     return true;
 }
 
-
 function resizeCanvasToOutput() {
     const widthInches = Number(widthInput.value);
     const outputPpi = Number(ppiInput.value);
 
-
-
-    if (!Number.isFinite(widthInches) || widthInches <= 0) {
-        return;
+    if (
+        !Number.isFinite(widthInches) ||
+        widthInches <= 0
+    ) {
+        return false;
     }
 
-    if (!Number.isFinite(outputPpi) || outputPpi <= 0 || outputPpi >1200) {
-        return;
+    if (
+        !Number.isFinite(outputPpi) ||
+        outputPpi <= 0 ||
+	outputPpi > 1200
+    ) {
+        return false;
+    }
+
+    if (!aspectRatio) {
+        return false;
     }
 
     const heightInches = widthInches * aspectRatio;
 
-    // Actual internal image resolution
+    // Internal resolution.
     canvas.width = Math.round(widthInches * outputPpi);
     canvas.height = Math.round(heightInches * outputPpi);
 
-    // Visual display size only
-    canvas.style.width = "800px";
+    // Display resolution.
+    canvas.style.width = "min(800px, 100%)";
     canvas.style.height = "auto";
+
+    return true;
 }
 
 
+// -----------------------------------------------------------------------------
+// Form input handling
+// -----------------------------------------------------------------------------
 
-// clear the previously selected file on page reload
-window.addEventListener('DOMContentLoaded', () => {
-    if (inputElement) {
-        inputElement.value = ''; // Clears the file
+imageForm.addEventListener("input", function (event) {
+    if (!img) {
+        return;
     }
-});
-
-// trigger the image pipeline on keystroke in form
-imageForm.addEventListener("input", function(event) {
-    if (!img) return;
 
     if (event.target === widthInput) {
-        updatePhysicalDimensions();
-        resizeCanvasToOutput();
+        const dimensionsUpdated =
+            updatePhysicalDimensions();
+
+        if (!dimensionsUpdated) {
+            return;
+        }
+
+        const canvasResized =
+            resizeCanvasToOutput();
+
+        if (!canvasResized) {
+            return;
+        }
     }
 
-    if (event.target === ppiInput)  {
-        resizeCanvasToOutput();
+    if (event.target === ppiInput) {
+        const canvasResized =
+            resizeCanvasToOutput();
+
+        if (!canvasResized) {
+            return;
+        }
     }
 
     processImagePipeline();
 });
 
 
-// Set up image download on button press
-const submitFormButton = document.getElementById("submit-edit-form");
-submitFormButton.addEventListener("click", () => {
-	processImagePipeline();
-	downloadImage();
+// -----------------------------------------------------------------------------
+// Border controls
+// -----------------------------------------------------------------------------
+
+addBorderCheckbox.addEventListener("change", function () {
+    if (addBorderCheckbox.checked) {
+        invertBorderCheckbox.checked = false;
+        invertBorderCheckbox.style.display = "inline-block";
+    } else {
+        invertBorderCheckbox.checked = false;
+        invertBorderCheckbox.style.display = "none";
+    }
 });
 
 
-// embed the image in a pdf and download it on a button press
-function downloadImage() {
-    const { jsPDF } = window.jspdf;
+// -----------------------------------------------------------------------------
+// Tabs and mode
+// -----------------------------------------------------------------------------
 
-    const imgWidth = Number(widthInput.value);
-    const imgHeight = Number(heightInput.value);
+halftoneTab.addEventListener("shown.bs.tab", function () {
+    mode = "halftone";
+    processImagePipeline();
+});
 
-    const addBorder =
-        document.getElementById("border-checkbox");
+thresholdTab.addEventListener("shown.bs.tab", function () {
+    mode = "threshold";
+    processImagePipeline();
+});
 
-    const makeBorderWhite =
-        document.getElementById("invert-border-checkbox");
 
-    const margin = addBorder.checked ? 0.125 : 0;
+// -----------------------------------------------------------------------------
+// Main image-processing pipeline
+// -----------------------------------------------------------------------------
 
-    const pdf = new jsPDF({
-        orientation: imgHeight >= imgWidth
-            ? "portrait"
-            : "landscape",
+function processImagePipeline() {
+    if (!img) {
+        return;
+    }
 
-        unit: "in",
+    ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
 
-        format: [
-            imgWidth + margin * 2,
-            imgHeight + margin * 2
-        ]
-    });
+    drawImageScaled(img, ctx, "contain");
 
-    if (addBorder.checked && !makeBorderWhite.checked) {
-        pdf.setFillColor(0, 0, 0);
+    adjustContrast(
+        Number(contrastSlider.value)
+    );
 
-        pdf.rect(
-            0,
-            0,
-            imgWidth + margin * 2,
-            imgHeight + margin * 2,
-            "F"
+    convertToGrayscale();
+
+    if (mode === "halftone") {
+        adjustLevels(20, 220, 1.0);
+
+        const selectedLpi =
+            document.querySelector(
+                'input[name="lpi"]:checked'
+            );
+
+        if (!selectedLpi) {
+            console.error("No LPI option is selected.");
+            return;
+        }
+
+        applyHalftone(
+            canvas.width,
+            canvas.height,
+            Number(selectedLpi.value),
+            Number(angleSlider.value),
+            invertCheckbox.checked
         );
     }
 
-    const canvasImgData = canvas.toDataURL("image/png");
+    if (mode === "threshold") {
+        applyThreshold(
+            Number(thresholdSlider.value),
+            invertCheckbox.checked
+        );
+    }
+}
 
-    pdf.addImage(
-        canvasImgData,
-        "PNG",
-        margin,
-        margin,
-        imgWidth,
-        imgHeight
+
+// -----------------------------------------------------------------------------
+// Image processing functions
+// -----------------------------------------------------------------------------
+
+function adjustLevels(shadowInput, highlightInput, gamma) {
+    const imageData = ctx.getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height
     );
 
-    pdf.save("rapidmask-image.pdf");
-}
+    const pixels = imageData.data;
+    const lookupTable = new Uint8ClampedArray(256);
 
-var mode = "halftone";
-const halftoneTab = document.querySelector('button[data-bs-target="#halftone-tab-pane"]');
-halftoneTab.addEventListener('show.bs.tab', event => {
-	mode = "halftone";
-	processImagePipeline();
-});
-
-const thresholdTab = document.querySelector('button[data-bs-target="#threshold-tab-pane"]');
-thresholdTab.addEventListener('show.bs.tab', event => {
-	mode = "threshold";
-	processImagePipeline();
-});
-
-const invertCheckbox = document.getElementById('invert-checkbox');
-const thresholdSlider = document.getElementById("threshold-slider");
-invertCheckbox.addEventListener('click', () => {
-	thresholdSlider.value = 255 - thresholdSlider.value;
-});
-
-const contrastSlider = document.getElementById("contrast-slider");
-contrastSlider.value = 0;
-
-const angle = document.getElementById("angle-slider");
-angle.value = 37.5;
-
-document.getElementById("lpi-45").checked = true;
-
-// this is the main image processing pipeline that updates on each keystroke in the edit form
-function processImagePipeline() {
-	if (!img) return;
-	ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-	drawImageScaled(img, ctx, 'contain');
-	adjustContrast(Number(contrastSlider.value));
-	convertToGrayscale();
-
-	if (mode == "halftone") {
-		adjustLevels(20, 220, 1.0);
-
-		const shape = document.querySelector('input[name="shape"]:checked');
-		const selectedLpi = document.querySelector('input[name="lpi"]:checked');
-		applyHalftone(canvas.width, canvas.height, Number(selectedLpi.value), angle.value, invertCheckbox.checked);
-	} else if (mode == "threshold") {
-		applyThreshold(thresholdSlider.value, invertCheckbox.checked);	
-
-
-	}
-}
-
-// adjust levels for the 90-10 rule
-function adjustLevels(shadowInput, highlightInput, gamma) {
-    // shadowInput: 0 to 255 (Black point)
-    // highlightInput: 0 to 255 (White point)
-    // gamma: usually 0.1 to 9.9 (Midtone/gamma correction, default 1.0)
-    
-    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const pixels = imgData.data;
-    
-    // 1. Build a 256-entry lookup table (LUT) for performance
-    const lut = new Uint8ClampedArray(256);
     for (let i = 0; i < 256; i++) {
-        // Normalize input to 0..1 range based on black and white inputs
-        let val = (i - shadowInput) / (highlightInput - shadowInput);
-        val = Math.max(0, Math.min(1, val)); // Clamp to 0..1
-        
-        // Apply gamma correction
-        val = Math.pow(val, 1 / gamma);
-        
-        // Map back to 0..255
-        lut[i] = Math.round(val * 255);
+        let value =
+            (i - shadowInput) /
+            (highlightInput - shadowInput);
+
+        value = Math.max(0, Math.min(1, value));
+        value = Math.pow(value, 1 / gamma);
+
+        lookupTable[i] = Math.round(value * 255);
     }
-    
-    // 2. Apply LUT to image pixels (r, g, b)
+
     for (let i = 0; i < pixels.length; i += 4) {
-        pixels[i]     = lut[pixels[i]];     // Red
-        pixels[i + 1] = lut[pixels[i + 1]]; // Green
-        pixels[i + 2] = lut[pixels[i + 2]]; // Blue
-        // pixels[i + 3] is Alpha, leave unchanged
+        pixels[i] = lookupTable[pixels[i]];
+        pixels[i + 1] = lookupTable[pixels[i + 1]];
+        pixels[i + 2] = lookupTable[pixels[i + 2]];
     }
-    
-    // 3. Put modified data back on the canvas
-    ctx.putImageData(imgData, 0, 0);
+
+    ctx.putImageData(imageData, 0, 0);
 }
 
-// applies a halftone effect to a canvas with settable lpi and angle
 function applyHalftone(width, height, lpi, angle, invert) {
+    const imageData = ctx.getImageData(
+        0,
+        0,
+        width,
+        height
+    );
 
-    const imgData = ctx.getImageData(0, 0, width, height);
-    const pixels = imgData.data;
+    const pixels = imageData.data;
 
-    ctx.fillStyle = invert ? '#000000' : '#ffffff';
-    ctx.fillRect(0, 0, width, height);
-    ctx.fillStyle = invert ? '#ffffff' : "#000000";
+    const outputPpi = Number(ppiInput.value);
+    const spacing = Math.max(1.5, outputPpi / lpi);
 
-	const outputPpi = Number(ppiInput.value);
-	const spacing = Math.max(1.5, outputPpi / lpi);
-
-    const radians = (angle * Math.PI) / 180;
+    const radians = angle * Math.PI / 180;
     const cos = Math.cos(radians);
     const sin = Math.sin(radians);
 
-    const maxDim = Math.sqrt(width * width + height * height);
-    
-    for (let u = -maxDim; u < maxDim; u += spacing) {
-        for (let v = -maxDim; v < maxDim; v += spacing) {
-            
-            const x = Math.floor(u * cos - v * sin + width / 2);
-            const y = Math.floor(u * sin + v * cos + height / 2);
+    const maxDimension =
+        Math.sqrt(width * width + height * height);
 
-            if (x >= 0 && x < width && y >= 0 && y < height) {
-                const index = (y * width + x) * 4;
-                
-                const r = pixels[index];
-                const g = pixels[index + 1];
-                const b = pixels[index + 2];
-                
-                const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
-                const darkness = (255 - brightness) / 255;
-                
-                // Radius scales dynamically relative to the smaller spacing size
-                const maxRadius = spacing * 0.68; 
-                const radius = maxRadius * Math.sqrt(darkness);
+    // Set the background and dot colors.
+    ctx.fillStyle = invert ? "#000000" : "#ffffff";
+    ctx.fillRect(0, 0, width, height);
 
-                if (radius > 0.1) {
-                    ctx.beginPath();
-                    ctx.arc(x, y, radius, 0, Math.PI * 2);
-                    ctx.fill();
-                }
+    ctx.fillStyle = invert ? "#ffffff" : "#000000";
+
+    for (
+        let u = -maxDimension;
+        u < maxDimension;
+        u += spacing
+    ) {
+        for (
+            let v = -maxDimension;
+            v < maxDimension;
+            v += spacing
+        ) {
+            const x = Math.floor(
+                u * cos - v * sin + width / 2
+            );
+
+            const y = Math.floor(
+                u * sin + v * cos + height / 2
+            );
+
+            if (
+                x < 0 ||
+                x >= width ||
+                y < 0 ||
+                y >= height
+            ) {
+                continue;
             }
+
+            const index = (y * width + x) * 4;
+
+            const r = pixels[index];
+            const g = pixels[index + 1];
+            const b = pixels[index + 2];
+
+            const brightness =
+                0.299 * r +
+                0.587 * g +
+                0.114 * b;
+
+            const darkness =
+                (255 - brightness) / 255;
+
+            const maxRadius = spacing * 0.68;
+            const radius =
+                maxRadius * Math.sqrt(darkness);
+
+            if (radius <= 0.1) {
+                continue;
+            }
+
+            ctx.beginPath();
+            ctx.arc(
+                x,
+                y,
+                radius,
+                0,
+                Math.PI * 2
+            );
+            ctx.fill();
         }
     }
 }
 
 function adjustContrast(contrastValue) {
-    
-    // 1. Extract the raw pixel data
-    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imgData.data; // Array of [R, G, B, A, R, G, B, A...]
-    
-    // 2. Calculate the contrast factor matrix
-    // contrastValue ranges from -255 to 255
-    const factor = (259 * (contrastValue + 255)) / (255 * (259 - contrastValue));
-    
-    // 3. Loop through every pixel (step by 4 for R, G, B, A channels)
+    const imageData = ctx.getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    const data = imageData.data;
+
+    const factor =
+        (259 * (contrastValue + 255)) /
+        (255 * (259 - contrastValue));
+
     for (let i = 0; i < data.length; i += 4) {
-        data[i]     = factor * (data[i] - 128) + 128;     // Red
-        data[i + 1] = factor * (data[i + 1] - 128) + 128; // Green
-        data[i + 2] = factor * (data[i + 2] - 128) + 128; // Blue
-        // data[i+3] is Alpha (opacity), which we leave untouched
+        data[i] =
+            factor * (data[i] - 128) + 128;
+
+        data[i + 1] =
+            factor * (data[i + 1] - 128) + 128;
+
+        data[i + 2] =
+            factor * (data[i + 2] - 128) + 128;
     }
-    
-    // 4. Overwrite the canvas pixels with the updated data
-    ctx.putImageData(imgData, 0, 0);
+
+    ctx.putImageData(imageData, 0, 0);
 }
 
-
-// converts image data to grayscale
 function convertToGrayscale() {
-	const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-	const data = imageData.data;
+    const imageData = ctx.getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
 
-	for (let i = 0; i < data.length; i+=4) {
-		const r = data[i];     // Red
-	    const g = data[i + 1]; // Green
-	    const b = data[i + 2]; // Blue
-	    // data[i + 3] is Alpha (transparency), we can skip modifying it
+    const data = imageData.data;
 
-	    // 3. Calculate perceptual luminance (brightness)
-	    const v = (0.2126 * r) + (0.7152 * g) + (0.0722 * b);
+    for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
 
+        const value =
+            0.2126 * r +
+            0.7152 * g +
+            0.0722 * b;
 
-	    data[i]     = v; // New Red
-	    data[i + 1] = v; // New Green
-	    data[i + 2] = v; // New Blue
-	}
- 	ctx.putImageData(imageData, 0, 0);
+        data[i] = value;
+        data[i + 1] = value;
+        data[i + 2] = value;
+    }
+
+    ctx.putImageData(imageData, 0, 0);
 }
 
-// apply a threshold to a grayscale image
 function applyThreshold(threshold, invert) {
+    const imageData = ctx.getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
 
-  // 1. Get the RGBA pixel array from the canvas
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const data = imageData.data; // A flat array of integers (0-255)
+    const data = imageData.data;
 
-  // 2. Loop through every pixel (4 elements per pixel: R, G, B, A) and we can skip G and B since it's grayscale so they should be the same.
-  for (let i = 0; i < data.length; i += 4) {
-    const v = invert ? data[i] : 255 - data[i];     // Gray value
-    // data[i + 3] is Alpha (transparency), we can skip modifying it
+    for (let i = 0; i < data.length; i += 4) {
+        const value = invert
+            ? data[i]
+            : 255 - data[i];
 
-    // 3. Force the pixel to pure white or pure black based on threshold
-    const finalColor = v >= threshold ? 255 : 0;
+        const finalColor =
+            value >= threshold ? 255 : 0;
 
-    data[i]     = finalColor; // New Red
-    data[i + 1] = finalColor; // New Green
-    data[i + 2] = finalColor; // New Blue
-  }
-	ctx.putImageData(imageData, 0, 0);
-}
+        data[i] = finalColor;
+        data[i + 1] = finalColor;
+        data[i + 2] = finalColor;
+    }
 
-// draw the image on the canvas
-function drawImageScaled(img, ctx, mode = 'contain') {
-	const canvasWidth = ctx.canvas.width;
-	const canvasHeight = ctx.canvas.height;
-
-	// Calculate scale ratios
-	const hRatio = canvasWidth / img.width;
-	const vRatio = canvasHeight / img.height;
-
-	// Determine the correct ratio depending on the chosen mode
-	// Use Math.min for 'contain' (fit inside), Math.max for 'cover' (fill up)
-	const ratio = (mode === 'contain') ? Math.min(hRatio, vRatio) : Math.max(hRatio, vRatio);
-
-	// Center the image on the canvas
-	const centerShift_x = (canvasWidth - img.width * ratio) / 2;
-	const centerShift_y = (canvasHeight - img.height * ratio) / 2;
-
-	ctx.drawImage(
-		img,
-		0, 0, img.width, img.height, // Source rectangle
-		centerShift_x, centerShift_y, img.width * ratio, img.height * ratio // Destination rectangle
-	);
+    ctx.putImageData(imageData, 0, 0);
 }
 
 
+// -----------------------------------------------------------------------------
+// Drawing
+// -----------------------------------------------------------------------------
+
+function drawImageScaled(image, context, mode = "contain") {
+    const canvasWidth = context.canvas.width;
+    const canvasHeight = context.canvas.height;
+
+    const horizontalRatio =
+        canvasWidth / image.width;
+
+    const verticalRatio =
+        canvasHeight / image.height;
+
+    const ratio = mode === "contain"
+        ? Math.min(horizontalRatio, verticalRatio)
+        : Math.max(horizontalRatio, verticalRatio);
+
+    const offsetX =
+        (canvasWidth - image.width * ratio) / 2;
+
+    const offsetY =
+        (canvasHeight - image.height * ratio) / 2;
+
+    context.drawImage(
+        image,
+        0,
+        0,
+        image.width,
+        image.height,
+        offsetX,
+        offsetY,
+        image.width * ratio,
+        image.height * ratio
+    );
+}
+
+
+// -----------------------------------------------------------------------------
+// PDF download
+// -----------------------------------------------------------------------------
+
+submitFormButton.addEventListener("click", function () {
+    if (!img) {
+        return;
+    }
+
+    processImagePipeline();
+    downloadImage();
+});
+
+function downloadImage() {
+    const { jsPDF } = window.jspdf;
+
+    const imageWidth = Number(widthInput.value);
+    const imageHeight = Number(heightInput.value);
+
+    const margin = addBorderCheckbox.checked
+        ? 0.125
+        : 0;
+
+    const pdf = new jsPDF({
+        orientation: imageHeight >= imageWidth
+            ? "portrait"
+            : "landscape",
+        unit: "in",
+        format: [
+            8.5,
+            11
+        ]
+    });
+
+    if (
+        addBorderCheckbox.checked &&
+        !invertBorderCheckbox.checked
+    ) {
+        pdf.setFillColor(0, 0, 0);
+
+        pdf.rect(
+            0,
+            0,
+            imageWidth + margin * 2,
+            imageHeight + margin * 2,
+            "F"
+        );
+    }
+
+    const canvasImageData =
+        canvas.toDataURL("image/png");
+
+    pdf.addImage(
+        canvasImageData,
+        "PNG",
+        margin,
+        margin,
+        imageWidth,
+        imageHeight
+    );
+
+    pdf.save("rapidmask-image.pdf");
+}
