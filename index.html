@@ -9,6 +9,7 @@
 
     <title>Photoresist Document Converter</title>
 
+    <link rel="stylesheet" href="style.css">
     <link
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
         rel="stylesheet"
@@ -52,28 +53,26 @@
                     <span class="display-6 text-primary">＋</span>
                 </div>
 
-                <h2 class="h5">
-                    Add an image
-                </h2>
+		<p class="text-muted mb-3">
+		  Choose a PNG, JPEG, WebP, GIF, BMP, or AVIF image,
+		  or drag and drop one here.
+		</p>
 
-                <p class="text-muted mb-3">
-                    Choose a PNG or JPEG file, or drag and drop one here.
-                </p>
+		<input
+		  type="file"
+		  id="image-input"
+		  accept=".png,.jpg,.jpeg,.webp,.gif,.bmp,.avif,image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif"
+		  class="visually-hidden"
+		>
 
-                <input
-                    type="file"
-                    id="image-input"
-                    accept="image/png, image/jpeg"
-                    class="visually-hidden"
-                >
-
-                <label
+		<label
                     for="image-input"
                     class="btn btn-primary"
                 >
                     Select an image
                 </label>
-            </div>
+   
+	    </div>
         </section>
 
         <!-- Sticky preview -->
@@ -125,7 +124,10 @@
                         </div>
 
                     </div>
-                </div>
+		    <div class="text-center mt-4">
+		    	<p>The black bits will be sandblasted away</p>
+                    </div>
+		</div>
             </div>
         </section>
 
@@ -241,12 +243,12 @@
                 <div class="card-body">
                     <div class="mb-4">
                         <label
-                            for="contrast-slider"
-                            class="form-label d-flex justify-content-between"
-                        >
-                            <span>Contrast</span>
-                            <span class="text-muted">Adjust image contrast</span>
-                        </label>
+			  for="contrast-slider"
+			  class="form-label d-flex justify-content-between"
+			>
+			  <span>Contrast</span>
+			  <output id="contrast-value" for="contrast-slider">0</output>
+			</label>
 
                         <input
                             type="range"
@@ -365,7 +367,7 @@
                                             for="lpi-35"
                                             class="form-check-label"
                                         >
-                                            Small — 35 LPI
+                                            Large — 35 LPI
                                         </label>
                                     </div>
 
@@ -400,7 +402,7 @@
                                             for="lpi-55"
                                             class="form-check-label"
                                         >
-                                            Large — 55 LPI
+                                            Small — 55 LPI
                                         </label>
                                     </div>
 

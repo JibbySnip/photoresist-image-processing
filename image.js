@@ -43,6 +43,11 @@ const thresholdSlider = document.getElementById("threshold-slider");
 const angleSlider = document.getElementById("angle-slider");
 const invertCheckbox = document.getElementById("invert-checkbox");
 
+contrastSlider.addEventListener("input", function () {
+  const value = Number(contrastSlider.value);
+  contrastValue.value = value > 0 ? `+${value}` : String(value);
+});
+
 const addBorderCheckbox =
     document.getElementById("border-checkbox");
 
@@ -84,11 +89,43 @@ addBorderCheckbox.addEventListener('change', () => {
 	}
 });
 
+// constrain the preview size
+function constrainPreviewSize(targetCanvas) {
+  const maxSize = 400;
+  const aspectRatio =
+    targetCanvas.width / targetCanvas.height;
+
+  let displayWidth;
+  let displayHeight;
+
+  if (aspectRatio >= 1) {
+    displayWidth = maxSize;
+    displayHeight = maxSize / aspectRatio;
+  } else {
+    displayHeight = maxSize;
+    displayWidth = maxSize * aspectRatio;
+  }
+
+  targetCanvas.style.width =
+    `min(${displayWidth}px, 100%)`;
+  targetCanvas.style.height = "auto";
+}
+
+
+
 // -----------------------------------------------------------------------------
 // Image loading
 // -----------------------------------------------------------------------------
 
 inputElement.addEventListener("change", handleFile);
+const acceptedImageTypes = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+  "image/bmp",
+  "image/avif"
+]);
 
 function handleFile(fileOrEvent) {
     const file = fileOrEvent.target
@@ -99,10 +136,22 @@ function handleFile(fileOrEvent) {
         return;
     }
 
+    if (!acceptedImageTypes.has(file.type)) {
+	alert("Please select a PNG, JPEG, WebP, GIF, BMP, or AVIF image.");
+	inputElement.value = "";
+	return;
+    }
+
     const reader = new FileReader();
 
     reader.onload = function (event) {
         img = new Image();
+
+
+	img.onerror = function () {
+  		alert("The browser could not decode this image.");
+  	img = null;
+	};
 
         img.onload = function () {
             aspectRatio =
@@ -135,9 +184,7 @@ function drawRawPreview() {
     rawCanvas.width = 800;
     rawCanvas.height = Math.round(800 * aspectRatio);
 
-    rawCanvas.style.width = "min(800px, 100%)";
-    rawCanvas.style.height = "auto";
-
+    constrainPreviewSize(rawCanvas);
     rawCtx.clearRect(
         0,
         0,
@@ -201,8 +248,7 @@ function resizeCanvasToOutput() {
     canvas.height = Math.round(heightInches * outputPpi);
 
     // Display resolution.
-    canvas.style.width = "min(800px, 100%)";
-    canvas.style.height = "auto";
+    constrainPreviewSize(canvas);
 
     return true;
 }
