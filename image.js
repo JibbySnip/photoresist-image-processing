@@ -420,12 +420,12 @@ function applyHalftone(width, height, lpi, angle, invert) {
     const maxDimension =
         Math.sqrt(width * width + height * height);
 
-    // White dots are kept and the black background is sandblasted, so
-    // dark areas (big dots) are kept, matching threshold mode.
-    ctx.fillStyle = invert ? "#ffffff" : "#000000";
+    // Black dots are kept and the clear (white) background is sandblasted,
+    // so dark areas (big dots) are kept, matching threshold mode.
+    ctx.fillStyle = invert ? "#000000" : "#ffffff";
     ctx.fillRect(0, 0, width, height);
 
-    ctx.fillStyle = invert ? "#000000" : "#ffffff";
+    ctx.fillStyle = invert ? "#ffffff" : "#000000";
 
     for (
         let u = -maxDimension;
@@ -560,8 +560,10 @@ function applyThreshold(threshold, invert) {
         // same gray level and are exact negatives of each other.
         const isDark = 255 - data[i] >= threshold;
 
+        // Dark areas turn black so they're kept; the rest is left clear
+        // to be sandblasted.
         const finalColor =
-            isDark !== invert ? 255 : 0;
+            isDark !== invert ? 0 : 255;
 
         data[i] = finalColor;
         data[i + 1] = finalColor;
@@ -644,11 +646,11 @@ function downloadImage() {
         ]
     });
 
-    // Black gets sandblasted, so the border is only black when it should
-    // be blasted into the piece. Otherwise the white page is the border.
+    // Clear gets sandblasted, so the border is black when it should be
+    // kept. To blast it into the piece, the clear (white) page is the border.
     if (
         addBorderCheckbox.checked &&
-        invertBorderCheckbox.checked
+        !invertBorderCheckbox.checked
     ) {
         pdf.setFillColor(0, 0, 0);
 
