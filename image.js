@@ -293,21 +293,6 @@ imageForm.addEventListener("input", function (event) {
 
 
 // -----------------------------------------------------------------------------
-// Border controls
-// -----------------------------------------------------------------------------
-
-addBorderCheckbox.addEventListener("change", function () {
-    if (addBorderCheckbox.checked) {
-        invertBorderCheckbox.checked = false;
-        invertBorderCheckbox.style.display = "inline-block";
-    } else {
-        invertBorderCheckbox.checked = false;
-        invertBorderCheckbox.style.display = "none";
-    }
-});
-
-
-// -----------------------------------------------------------------------------
 // Tabs and mode
 // -----------------------------------------------------------------------------
 
@@ -331,7 +316,10 @@ function processImagePipeline() {
         return;
     }
 
-    ctx.clearRect(
+    // Start from white so transparent pixels are treated as a white
+    // background, the same way the original image preview shows them.
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(
         0,
         0,
         canvas.width,
@@ -432,11 +420,12 @@ function applyHalftone(width, height, lpi, angle, invert) {
     const maxDimension =
         Math.sqrt(width * width + height * height);
 
-    // Set the background and dot colors.
-    ctx.fillStyle = invert ? "#000000" : "#ffffff";
+    // White dots are kept and the black background is sandblasted, so
+    // dark areas (big dots) are kept, matching threshold mode.
+    ctx.fillStyle = invert ? "#ffffff" : "#000000";
     ctx.fillRect(0, 0, width, height);
 
-    ctx.fillStyle = invert ? "#ffffff" : "#000000";
+    ctx.fillStyle = invert ? "#000000" : "#ffffff";
 
     for (
         let u = -maxDimension;
@@ -655,9 +644,11 @@ function downloadImage() {
         ]
     });
 
+    // Black gets sandblasted, so the border is only black when it should
+    // be blasted into the piece. Otherwise the white page is the border.
     if (
         addBorderCheckbox.checked &&
-        !invertBorderCheckbox.checked
+        invertBorderCheckbox.checked
     ) {
         pdf.setFillColor(0, 0, 0);
 
@@ -673,13 +664,16 @@ function downloadImage() {
     const canvasImageData =
         canvas.toDataURL("image/png");
 
+    // Without compression jsPDF stores the raw pixels (~26 MB at 600 PPI).
     pdf.addImage(
         canvasImageData,
         "PNG",
         margin,
         margin,
         imageWidth,
-        imageHeight
+        imageHeight,
+        undefined,
+        "FAST"
     );
 
     pdf.save("rapidmask-image.pdf");
