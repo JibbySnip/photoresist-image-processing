@@ -556,12 +556,12 @@ function applyThreshold(threshold, invert) {
     const data = imageData.data;
 
     for (let i = 0; i < data.length; i += 4) {
-        const value = invert
-            ? data[i]
-            : 255 - data[i];
+        // Invert the result, not the input, so both versions cut at the
+        // same gray level and are exact negatives of each other.
+        const isDark = 255 - data[i] >= threshold;
 
         const finalColor =
-            value >= threshold ? 255 : 0;
+            isDark !== invert ? 255 : 0;
 
         data[i] = finalColor;
         data[i + 1] = finalColor;
